@@ -1,0 +1,344 @@
+---
+title: "ggplot"
+output: html_document
+---
+A rough tutorial / opinion by Peter Alstone
+March 18 2015
+Cleanweb Berkeley Meeting
+
+# Why GG?
+
+The gg in [ggplot](http://en.wikipedia.org/wiki/Ggplot2) stands for "grammar of graphics."  It is a way of describing graphics using a grammar i.e., a formal language like in computer science or in actual languages, originally described by Leland Wilkinson and implemented (now famously) by Hadley Wickham.  If you use R, you probably are using at least one package developed by Hadley (or should be), like ggplot, plyr, or the IDE Rstudio.  
+
+The high level concept is that graphics are composed of visual elements that convey quantitative and qualitative data, and that one can use abstract language to concisely describe a graphic as it relates to the data.  This all sounds a bit complex, and takes a bit of head-wrapping to get started, but I have found it is worth it.
+
+ggplot is not just another way to graph, but because of the structure of the "API" it imposes a way of thinking about graphics that can be useful for coming up with new ideas for making plots and graphics.  
+
+It was originally developed for [R](http://cran.r-project.org/web/packages/ggplot2/index.html), and now there is also a quite-useful [python version](http://ggplot.yhathq.com/).  Elements of GG are being rolled into other graphics packages I've seen as well, like "bokeh".  
+
+# Read the manual
+
+[Current ggplot documentation](http://docs.ggplot2.org/current/)
+
+Some google-available resources:
+
+[Tutorial](http://www.ceb-institute.org/bbs/wp-content/uploads/2011/09/handout_ggplot2.pdf)
+
+
+# Basics - getting started
+
+Make sure you have ggplot installed on the computer and are ready to use it.  We will use a few of the "pre-installed" datasets in R and one additional energy dataset in the demos.
+
+The code chunk below installs the required packages and loads them into the workspace.  ggplot2 is obviously required today.  data.table and plyr will make some of our data operations easier.
+
+```{r install packages, eval = F}
+install.packages("ggplot2")
+install.packages("data.table")
+install.packages("plyr")
+install.packages("Hmisc")
+install.packages("lubridate")
+```
+
+```{r load packages}
+require(ggplot2)
+require(data.table)
+require(plyr)
+require(Hmisc)
+require(knitr)
+
+# Note that since we are using both plyr and Hmisc, we need to use british english spellings for the "verbs" in plyr to make sure that there is no conflict between the "summarize / summarise" methods.  Yes, it is silly.  So, use british spelling in plyr. :)
+```
+
+# Iris data for initial features
+
+We will use the venerable "Iris" dataset (sepal length, etc.) that we all know and love to show a few of the features at first, then move to more interesting and complex data.
+
+```{r}
+str(iris)
+# "describe" is a nice convenience function from Hmisc for quick looks at data frame statistical properties
+describe(iris)
+```
+
+## First, the basic R plotting commands (for reference)
+
+It is useful to look at what the basic commands can get for "one-liner" default behavior.  Some interesting things for the combinatorial scattetplots. Not so interesting for a single vector of Sepal Length
+
+```{r}
+plot(iris)
+plot(iris$Sepal.Length)
+```
+
+The ggplot version of quick plots is "qplot" where some method is selected based on the data that is passed:
+
+```{r}
+qplot(iris$Sepal.Length)
+```
+
+In this case, a histogram is the default plot that is created.  This is probably more useful than the index scatterplot from the base R plotting methods.  
+
+We can re-create this using the building blocks of ggplot: data, aesthetics, stats, and geoms
+
+DATA - the source of data
+
+AESthetics - the features in the data to be plotted and how they are related to eachother in the graphic
+
+STATs - any transformations to apply to the data in the plot
+
+GEOM - the representation of the data
+
+SCALES - ways to represent color, shapes, and axis relationships
+
+...see more catagories in the documentation.
+
+
+```{r}
+# Step 1 - define the data and the aesthetic to plot
+my.plot <- ggplot(data = iris, aes(Sepal.Length))
+
+# Step 2 - Add a geom layer to the plot, in this case a histogram
+my.plot + geom_histogram()
+
+```
+
+So we can re-create the histogram of sepal length, but what else can we do to explore these data with ggplot?
+
+Change options inside the geoms
+
+```{r}
+my.plot + geom_histogram(binwidth = 1) + ggtitle("Change the bin width")
+my.plot + geom_histogram(binwidth = 0.05) + ggtitle("Change the bin width")
+```
+
+We can make it pretty.
+
+```{r}
+# "themes" often make a nice difference
+my.plot + geom_histogram() + theme_bw()
+my.plot + geom_histogram() + theme_minimal()
+
+my.plot + geom_histogram(fill="darkgreen", color = "grey50") + theme_bw()
+```
+
+We can give it labels
+```{r}
+my.plot + geom_histogram(fill="darkgreen", color = "grey50") + theme_bw() + xlab("Sepal Length (meters)") + ggtitle("Sepal Length")
+```
+
+One dig on ggplot is that the text is pretty small in default.  This is dealt with in a not-so-intuitive way through the theme layers, by redefining the text "element" size.  Once you start to get a lot of layers in the plot it can be nice in the code to start to use newline after each "+" to differentiate between the layers.
+
+```{r}
+my.plot + geom_histogram(fill="darkgreen", color = "grey50") + 
+  theme(text = element_text(size=20)) + 
+  xlab("Sepal Length (meters)") + 
+  ggtitle("Sepal Length")
+```
+
+There are other kinds of plots we can apply to this vector of sepal length data as well.
+
+```{r}
+my.plot + geom_density()  + theme(text = element_text(size = 20))
+
+my.plot + geom_density(adjust = 0.2)  + theme(text = element_text(size = 20)) + ggtitle("Different kernel widths")
+
+my.plot + geom_density(aes(y = ..scaled..))  + theme(text = element_text(size = 20)) + ggtitle("Scaled so max is 1 \n useful for plotting data of different sample size together")
+
+my.plot + stat_ecdf() + theme(text = element_text(size = 20))
+
+```
+
+## Let's look at some of the classic relationships in this data
+
+A simple scatterplot of Width vs. Length doesn't tell us much...
+
+```{r}
+my.plot.2 <- ggplot(iris, aes(Sepal.Width, Sepal.Length))
+
+my.plot.2 + geom_point()
+
+```
+
+Add some more features to the plot to make it useful...
+
+```{r}
+my.plot.2 + geom_point(aes(color = Species)) + theme_bw() + theme(text = element_text(size = 20))
+
+# Bigger dots...
+my.plot.2 + geom_point(aes(color = Species), size = 5) + theme_bw() + theme(text = element_text(size = 20))
+
+# Dots that correspond in size to another feature (Pedal Length / Width Ratio) -- note it needs to go inside the aesthetic section to "count" here.
+
+my.plot.2 + geom_point(aes(color = Species, size = Petal.Length/Petal.Width)) + theme_bw() + theme(text = element_text(size = 20))
+
+
+# Hard to see, lets try it in log10
+my.plot.2 + geom_point(aes(color = Species, size = log10(Petal.Length/Petal.Width))) + theme_bw() + theme(text = element_text(size = 20))
+
+```
+
+## Adding model fits ("stat_smooth")
+
+```{r}
+# Start with basic plot
+my.plot.2 + geom_point(aes(color = Species), size = 5) + theme_bw() + theme(text = element_text(size = 20))
+
+# Add default smooth (loess)
+my.plot.2 + geom_point(aes(color = Species), size = 5) + theme_bw() + theme(text = element_text(size = 20)) + stat_smooth()
+
+# Try linear model
+my.plot.2 + geom_point(aes(color = Species), size = 5) + theme_bw() + theme(text = element_text(size = 20)) + stat_smooth(method = "lm")
+
+# Group loess by Species
+my.plot.2 + geom_point(aes(color = Species), size = 5) + theme_bw() + theme(text = element_text(size = 20)) + stat_smooth(aes(group = Species))
+
+# Linear model by Species
+my.plot.2 + geom_point(aes(color = Species), size = 5) + theme_bw() + theme(text = element_text(size = 20)) + stat_smooth(aes(group = Species), method = "lm")
+
+
+```
+# More interesting data: California Solar Initiative 
+
+The [working dataset](http://www.californiasolarstatistics.ca.gov/current_data_files/) from CSI includes key features of all the solar projects that have applied for funding / subsidy under the california solar initiative.  It is an interesting dataset for that gives us a bit more to chew on than just flower characteristics.
+
+Note: this dataset is pretty big in memory, so we will use the data.table package to load and manage it.  
+
+```{r}
+csi <- read.csv("WorkingDataSet_3-11-2015.csv") # fread chokes on this, so using the slower but more robust read.csv
+csi <- as.data.table(csi)
+names(csi) <- tolower(names(csi)) # it is often nicer to have all lower case names.
+```
+
+Use ggplot to check on the status of systems in the dataset.
+
+```{r}
+ggplot(csi, aes(installed.status)) + geom_bar()
+
+ggplot(csi, aes(installed.status)) + geom_bar() + coord_flip() + theme(text = element_text(size = 20))
+
+```
+
+It is getting tedious always setting the theme text size...let's change the default for the gray theme, for this session.
+
+```{r}
+theme_set(theme_gray(base_size = 20))
+
+```
+
+Let's only include systems that were actually installed already.  
+
+```{r}
+csi <- csi[installed.status == "Installed",]
+
+```
+
+A lot of the interesting elements for this dataset will have to do with dates.  The lubridate package is nice for interpreting these....giving us functions like "ymd()" to automatically parse and reclass a character string that looks like "2015-03-18".  We will use the "data table" format for making new columns because it is faster.
+
+```{r, results = "hide"}
+require(lubridate)
+
+csi[,install.date := ymd(first.completed.date)]
+csi[,app.date := ymd(first.new.reservation.request.date)]
+```
+
+## Incentive Amounts
+
+
+Some of the incentives are quite big.  We need to use log axis to see them.
+```{r}
+ggplot(csi, aes(incentive.amount)) + geom_histogram() 
+ggplot(csi, aes(incentive.amount)) + geom_histogram() + scale_x_log10()
+```
+
+Let's look at incentives per watt installed, in aggregate then over time.  We calculate the incentive in units of $/kW nameplate installed capacity.
+
+```{r}
+
+csi$unit.incent <- csi$incentive.amount / csi$nameplate.rating
+
+ggplot(csi, aes(unit.incent)) + geom_histogram()
+
+```
+
+Testing some factors that are important for incentive amount, like the type of incentive (Performance based (PBI) vs. Expected Performance Buydown (EPBB) with less risk)
+
+```{r}
+ggplot(csi, aes(unit.incent)) + geom_histogram(aes(fill = incentive.type))
+
+# Getting fancy with the density plots
+ggplot(csi, aes(unit.incent)) + geom_density(aes(y = ..scaled.., fill = incentive.type), alpha = 0.5)
+
+# Or a box plot will do...
+ggplot(csi, aes(incentive.type, unit.incent))+geom_boxplot() + coord_flip()
+
+```
+
+Let's look at the incentives over time:
+
+```{r}
+ggplot(csi, aes(app.date, unit.incent))+geom_point()
+
+# See more features with smaller points
+
+ggplot(csi, aes(app.date, unit.incent))+geom_point(size = 0.5)
+
+# Note much more dispersion when we consider installation date rather than application date.  Placeholder applications then stretch out...
+ggplot(csi, aes(install.date, unit.incent)) + geom_point(size = 0.5)
+
+
+ggplot(csi, aes(app.date, unit.incent))+geom_point(size = 0.5, aes(color = incentive.type))
+
+```
+
+Final check -- how have the incentive profiles changed over time
+
+```{r}
+csi$app.year <- year(csi$app.date)
+
+ggplot(csi, aes(incentive.type, unit.incent)) +geom_boxplot() +facet_wrap("app.year") + scale_y_log10()
+
+```
+
+Are the systems changing over time?
+
+```{r}
+ggplot(csi, aes(install.date, nameplate.rating))+geom_point()
+
+ggplot(csi, aes(install.date, nameplate.rating))+geom_point(size = 0.5)+scale_y_log10()
+
+# Let's exclude everything over 50 kW so we can work in linear space.
+
+ggplot(csi[nameplate.rating < 50,], aes(install.date, nameplate.rating))+geom_point()
+
+ggplot(csi[nameplate.rating < 50,], aes(install.date, nameplate.rating))+geom_point(size = 0.5) + stat_smooth(size = 2)
+
+ggplot(csi[nameplate.rating < 50,], aes(install.date, nameplate.rating))+geom_point(size = 0.5) + stat_smooth(size = 2) + ylim(0,15)
+
+
+```
+
+We can also pull out the dynamics for one particular firm, e.g., SolarCity
+
+```{r}
+sc <- csi[seller.company.name == "SolarCity",]
+
+ggplot(sc, aes(install.date, nameplate.rating)) + geom_point() + scale_y_log10()
+
+```
+
+
+# Notes on markdown document format
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r markdown demo summary}
+summary(cars)
+```
+
+You can also embed plots, for example:
+
+```{r markdown demo plot, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
